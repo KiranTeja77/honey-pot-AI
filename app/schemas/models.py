@@ -19,6 +19,11 @@ class MessageInput(BaseModel):
     conversationHistory: Optional[List[Message]] = []
     metadata: Optional[Metadata] = None
 
+# Backward compatibility: Simple format (for testing)
+class SimpleMessageInput(BaseModel):
+    sessionId: Optional[str] = None
+    message: str  # Just plain text
+
 class AIResponse(BaseModel):
     status: str  # "success" or "error"
     reply: str
