@@ -1,5 +1,6 @@
 import json
 import os
+from app.schemas.models import ExtractedIntelligence
 
 _sessions = {}
 DATA_DIR = "storage"
@@ -23,15 +24,18 @@ def load_session(sid):
                     data = {
                         "history": conversations[sid],
                         "turns": len(conversations[sid]) // 2,
-                        "intelligence": {},
-                        "patterns": []
+                        "intelligence": ExtractedIntelligence(),
+                        "patterns": [],
+                        "scam_detected": False,
+                        "scam_scores": []
                     }
                     # Restore intelligence
                     scammer_file = os.path.join(DATA_DIR, "scammers.json")
                     if os.path.exists(scammer_file):
                         with open(scammer_file, "r") as f2:
                             scammers = json.load(f2)
-                            data["intelligence"] = scammers.get(sid, {})
+                            if sid in scammers:
+                                data["intelligence"] = ExtractedIntelligence(**scammers[sid])
                     # Restore patterns
                     pattern_file = os.path.join(DATA_DIR, "patterns.json")
                     if os.path.exists(pattern_file):
@@ -41,12 +45,25 @@ def load_session(sid):
                     
                     _sessions[sid] = data
                     return data
-        except: pass
+        except Exception as e:
+            print(f"Error loading session {sid}: {e}")
 
-    return {"history": [], "turns": 0, "intelligence": {}, "patterns": []}
+    return {
+        "history": [],
+        "turns": 0,
+        "intelligence": ExtractedIntelligence(),
+        "patterns": [],
+        "scam_detected": False,
+        "scam_scores": []
+    }
 
 def save_session(sid, data):
     _sessions[sid] = data
+    
+    # Convert ExtractedIntelligence to dict for JSON serialization
+    intelligence_dict = data["intelligence"]
+    if isinstance(intelligence_dict, ExtractedIntelligence):
+        intelligence_dict = intelligence_dict.model_dump()
     
     # Save Conversation Log
     conv_file = os.path.join(DATA_DIR, "conversations.json")
@@ -68,7 +85,7 @@ def save_session(sid, data):
             with open(scammer_file, "r") as f:
                 scammers = json.load(f)
         except: pass
-    scammers[sid] = data["intelligence"]
+    scammers[sid] = intelligence_dict
     with open(scammer_file, "w") as f:
         json.dump(scammers, f, indent=2)
 
